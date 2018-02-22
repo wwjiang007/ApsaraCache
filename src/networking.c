@@ -791,6 +791,7 @@ void freeClient(client *c) {
     if (server.master && c->flags & CLIENT_MASTER) {
         serverLog(LL_WARNING,"Connection with master lost.");
         revertOpidIfNeeded();
+        activeFullResyncOnProtocolErr(c);
         if (!(c->flags & (CLIENT_CLOSE_AFTER_REPLY|
                           CLIENT_CLOSE_ASAP|
                           CLIENT_BLOCKED|
@@ -799,7 +800,6 @@ void freeClient(client *c) {
             replicationCacheMaster(c);
             return;
         }
-        activeFullResyncOnProtocolErr(c);
     }
 
     /* Log link disconnection with slave */
@@ -1048,6 +1048,7 @@ void resetClient(client *c) {
      * to the next command will be sent, but set the flag if the command
      * we just processed was "CLIENT REPLY SKIP". */
     c->flags &= ~CLIENT_REPLY_SKIP;
+    c->flags &= ~CLIENT_NO_REPLY;
     if (c->flags & CLIENT_REPLY_SKIP_NEXT) {
         c->flags |= CLIENT_REPLY_SKIP;
         c->flags &= ~CLIENT_REPLY_SKIP_NEXT;
@@ -1150,6 +1151,7 @@ void setProtocolError(const char *errstr, client *c, int pos) {
         sdsfree(client);
     }
     c->flags |= CLIENT_CLOSE_AFTER_REPLY;
+    c->flags |= REDIS_PROTOCOL_ERROR;
     sdsrange(c->querybuf,pos,-1);
 }
 
